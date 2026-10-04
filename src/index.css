@@ -1,0 +1,286 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ===== Design tokens (warm, soft — see the redesign spec) ===== */
+@theme {
+  --font-sans: "Outfit", "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
+
+  --color-cream: #f7f2ee; /* app background */
+  --color-linen: #efe3d9; /* dividers, tracks, borders */
+  --color-peach: #fddcc4; /* pastel tile / reminder card */
+  --color-mint: #ddebc0; /* pastel tile */
+  --color-blush: #f8d5ec; /* pastel tile */
+  --color-tangerine: #f97316; /* accent orange */
+  --color-ember: #a0470f; /* burnt orange */
+  --color-olive: #8fa82b; /* olive green */
+  --color-olive-deep: #66781c;
+  --color-blossom: #e88bc8; /* pink */
+  --color-cocoa: #5a2e1e; /* dark brown buttons */
+  --color-charcoal: #2b2b2b; /* selected day */
+  --color-ink: #3d2c23; /* primary text on cream */
+  --color-ink-soft: #75635a; /* secondary text on cream (WCAG AA) */
+
+  --color-espresso: #211510; /* dark-mode page bg */
+  --color-graphite-btn: #4a4a4d; /* phone side buttons */
+  --color-bark: #2e2018; /* dark-mode card bg */
+  --color-parchment: #f6ede4; /* dark-mode primary text */
+  --color-taupe: #b3a496; /* dark-mode secondary text (WCAG AA) */
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply antialiased;
+    font-family: var(--font-sans);
+    font-synthesis: none; /* never faux-bold — Outfit ships real weights */
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+  }
+  ::placeholder {
+    color: var(--color-ink-soft);
+    opacity: 0.75;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-tangerine);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* White card: 24px radius, hairline border, soft layered shadow */
+  .card {
+    @apply rounded-3xl bg-white ring-1 ring-cocoa/[0.06];
+    box-shadow:
+      0 1px 2px rgba(90, 46, 30, 0.05),
+      0 10px 28px -14px rgba(90, 46, 30, 0.22);
+  }
+  .dark .card {
+    @apply ring-white/10;
+    box-shadow: none;
+  }
+
+  /* Pill buttons: 52px tall, 16px text, springy press */
+  .btn {
+    @apply inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 text-base font-bold transition-all duration-200 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-accent {
+    @apply bg-tangerine text-white;
+    box-shadow: 0 10px 24px -10px rgba(249, 115, 22, 0.65);
+  }
+  .btn-accent:hover {
+    filter: brightness(1.06);
+  }
+  .btn-primary {
+    @apply bg-cocoa text-white;
+    box-shadow: 0 10px 24px -12px rgba(90, 46, 30, 0.6);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.15);
+  }
+  .btn-ghost {
+    @apply border border-linen bg-white text-ink hover:bg-cream dark:border-white/10 dark:bg-white/5 dark:text-parchment dark:hover:bg-white/10;
+  }
+
+  /* Inputs: 52px tall, 16px text (also prevents iOS focus-zoom) */
+  .input {
+    @apply min-h-[52px] w-full rounded-2xl border border-linen bg-cream px-4 text-base text-ink outline-none transition placeholder:text-ink-soft/70 focus:border-tangerine focus:ring-4 focus:ring-tangerine/20 dark:border-white/10 dark:bg-white/5 dark:text-parchment;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold;
+  }
+  .icon-btn {
+    @apply flex h-10 w-10 items-center justify-center rounded-full text-ink-soft transition hover:bg-cream hover:text-ink dark:text-taupe dark:hover:bg-white/10;
+  }
+
+  /* Hatched track behind the tall progress pills */
+  .hatch-track {
+    background: repeating-linear-gradient(
+      45deg,
+      #efe3d9 0px,
+      #efe3d9 5px,
+      #f7f2ee 5px,
+      #f7f2ee 10px
+    );
+  }
+  .dark .hatch-track {
+    background: repeating-linear-gradient(
+      45deg,
+      #3a2920 0px,
+      #3a2920 5px,
+      #2e2018 5px,
+      #2e2018 10px
+    );
+  }
+
+  /* Staggered fade/slide-in for lists */
+  .stagger > * {
+    animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.07s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.12s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.17s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.22s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.27s; }
+  .stagger > *:nth-child(n + 7) { animation-delay: 0.32s; }
+}
+
+/* ===== Animations ===== */
+@keyframes pop {
+  0% { transform: scale(0.3); }
+  60% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes confetti-fall {
+  0% { transform: translateY(-60px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(900px) rotate(720deg); opacity: 0; }
+}
+@keyframes float-up {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-44px); opacity: 0; }
+}
+@keyframes flame-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.06); }
+}
+
+.animate-pop { animation: pop 0.3s ease-out both; }
+.animate-rise { animation: rise 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-fade-in { animation: fade-in 0.2s ease-out both; }
+.animate-flame { animation: flame-pulse 1.6s ease-in-out infinite; }
+.animate-float-up { animation: float-up 0.9s ease-out both; }
+.animate-glow { animation: glow-breathe 5s ease-in-out infinite; }
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  animation: confetti-fall linear forwards;
+}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== Phone frame (desktop preview mode) ===== */
+
+/*
+ * The app root now participates in the phone screen's flex column:
+ * status bar (fixed height) → app root (flex:1) → nothing else.
+ * Inside it, <main class="phone-scroll"> is the ONLY scrolling region.
+ * Nothing inside the frame uses position:fixed.
+ */
+.phone-screen .app-root {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The single scroller: hidden scrollbar, iOS momentum, no overscroll chain. */
+.phone-scroll {
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.phone-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Modal sheet: cap to the phone screen, not the (taller) browser viewport */
+.phone-screen .app-fixed > .animate-rise {
+  max-height: calc(100% - 24px);
+}
+
+/* Toasts sit below the status bar inside the phone */
+.phone-screen [data-slot='toasts'] {
+  top: 60px;
+}
+
+/*
+ * Inside the 390px phone screen, hide tab labels even though the BROWSER
+ * window is wide — matches how the app renders on a real phone.
+ */
+.phone-screen .tab-label {
+  display: none;
+}
+
+/*
+ * Overlay containment: the phone screen is the containing block for the
+ * fixed-positioned overlays used in full-screen mode (modals, toasts,
+ * confetti). The FAB is already position:absolute in the markup, so this
+ * retarget only affects true overlays.
+ */
+.phone-screen .app-fixed {
+  position: absolute;
+}
+
+/*
+ * Modals, confetti and toasts must cover the nav and FAB: stretch the full
+ * screen. (The FAB opts out via its own absolute positioning below.)
+ */
+.phone-screen .app-fixed[data-slot='modal'],
+.phone-screen .app-fixed[data-slot='confetti'] {
+  inset: 0;
+}
+
+/*
+ * The floating "+" anchors to the bottom-right of the phone screen, just
+ * above the in-flow tab bar (nav height ≈ 84px inside the frame).
+ */
+.phone-screen .app-fixed[data-slot='fab'] {
+  bottom: 104px;
+}
+
+/* Body scrollbars off while the frame is active (page never scrolls). */
+body:has(.phone-stage) {
+  overflow: hidden;
+}
+
+/*
+ * Full-screen mode (real phones / narrow windows): the viewport itself is
+ * the flex column. No fixed/sticky here either — height:100dvh tracks mobile
+ * browser chrome, and the nav sits in flow at the bottom. body stays static
+ * (never scrolls) because .app-root is exactly the viewport height.
+ */
+.app-root {
+  height: 100dvh;
+}
+.app-root > nav[data-slot='tabbar'] {
+  padding-bottom: max(env(safe-area-inset-bottom), 20px);
+}
+
+/*
+ * Sizing fallback: PhoneFrame sets --phone-scale and prefers CSS `zoom`
+ * (text is re-rasterized, so it stays sharp). Browsers without zoom support
+ * get a transform: scale fallback instead.
+ */
+.phone-scale {
+  zoom: var(--phone-scale, 1);
+}
+@supports not (zoom: 1) {
+  .phone-scale {
+    zoom: 1;
+    transform: scale(var(--phone-scale, 1));
+    transform-origin: center;
+  }
+}

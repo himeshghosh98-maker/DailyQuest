@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.next/
+*.log
+.node/
+.freebuff/
+.DS_Store
