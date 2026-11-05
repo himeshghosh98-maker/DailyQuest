@@ -8,22 +8,29 @@
     "build": "next build",
     "start": "next start",
     "vite:dev": "vite",
-    "vite:build": "vite build"
+    "vite:build": "vite build",
+    "dev:api": "npm --prefix server run dev",
+    "dev:all": "concurrently -n web,api -c cyan,magenta \"npm run dev\" \"npm run dev:api\"",
+    "dev:all:vite": "concurrently -n web,api -c cyan,magenta \"npm run vite:dev\" \"npm run dev:api\"",
+    "test:api": "npm --prefix server test"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "autoprefixer": "^10.6.1",
     "canvas-confetti": "^1.9.4",
+    "cmdk": "^1.1.1",
     "lucide-react": "^1.47.0",
     "next": "^14.2.15",
     "postcss": "^8.5.28",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^2.15.4"
+    "recharts": "^2.15.4",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",
     "@vitejs/plugin-react": "^4.6.0",
+    "concurrently": "^10.0.5",
     "tailwindcss": "^4.1.11",
     "vite": "^6.3.5"
   }

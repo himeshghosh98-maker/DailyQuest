@@ -1,4 +1,5 @@
 import {
+  DATA_VERSION,
   DEFAULT_TASKS,
   FOCUS_LIMITS,
   FOCUS_MODES,
@@ -12,12 +13,54 @@ import {
   XP_MAX,
   XP_MIN,
 } from './constants'
+import { apiFetch, getAuthRecord, isOnlineSession } from './api/client'
+
+/**
+ * Data layer: localStorage stays the immediate cache (every existing call
+ * keeps its exact name, sync behavior and return shape), while reads/writes
+ * are mirrored to the backend API:
+ *
+ *  - loadState()  → returns the cache instantly, then refreshes from the
+ *                   server in the background (dispatches
+ *                   'dailyquest:server-state' when newer data lands)
+ *  - saveState()  → writes the cache instantly, then flushes to the
+ *                   server (debounced); failures queue in
+ *                   'dailyquest:pending' and sync when back online
+ *  - migrateAndSync() → one-time silent upload of pre-upgrade localStorage
+ *                   data on first login, then the initial pull
+ *
+ * Guests (no token) never touch the API — they stay local-only.
+ */
+
+const PENDING_KEY = 'dailyquest:pending'
+const migratedKey = (auth) => `dailyquest:migrated:${auth?.userId || auth?.token || 'anon'}`
+
+/** Debounce for server flushes (state saves fire on every reducer change). */
+const FLUSH_DELAY = 700
+
+let lastSyncedJson = null // dedupe: skip PUT when nothing changed
+let latestState = null
+let flushTimer = null
+let refreshInFlight = false
+let syncReady = false // online listeners installed
+
+function canSync() {
+  return typeof window !== 'undefined' && isOnlineSession()
+}
+
+/* ===== original local cache behavior (unchanged contract) ===== */
 
 export function loadState() {
   try {
     if (typeof window === 'undefined') return null
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? migrateState(JSON.parse(raw)) : null
+    const state = raw ? migrateState(JSON.parse(raw)) : null
+    // Background refresh + pending-write flush; the return value is untouched.
+    if (canSync()) {
+      initSyncListeners()
+      migrateAndSync().catch(() => {})
+    }
+    return state
   } catch (err) {
     console.error('DailyQuest: failed to load state', err)
     return null
@@ -27,11 +70,170 @@ export function loadState() {
 export function saveState(state) {
   try {
     if (typeof window === 'undefined') return
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    const json = JSON.stringify(state)
+    localStorage.setItem(STORAGE_KEY, json)
+    if (!canSync()) return
+    if (json === lastSyncedJson) return // already what the server has
+    latestState = state
+    scheduleFlush()
   } catch (err) {
     console.error('DailyQuest: failed to save state', err)
   }
 }
+
+/* ===== server sync ===== */
+
+function scheduleFlush() {
+  if (flushTimer) clearTimeout(flushTimer)
+  flushTimer = setTimeout(() => {
+    flushTimer = null
+    flush(latestState)
+  }, FLUSH_DELAY)
+}
+
+/** Push the given state to the server; queue it locally if unreachable. */
+async function flush(state) {
+  if (!state || !canSync()) return
+  try {
+    const saved = await apiFetch('/state', { method: 'PUT', body: { state } })
+    lastSyncedJson = JSON.stringify(saved ?? state)
+    clearPending()
+  } catch (err) {
+    if (err.code === 'NETWORK' || err.status >= 500) {
+      queueWrite(state) // offline → sync later
+    } else if (err.status === 401) {
+      // Expired/invalid token: keep the cache; the user re-logs-in later.
+      console.warn('DailyQuest: session rejected by server, sync paused', err.message)
+    } else {
+      console.warn('DailyQuest: server sync failed', err.message)
+    }
+  }
+}
+
+/** Store an unsent snapshot (latest wins — full-state sync is LWW). */
+function queueWrite(state) {
+  try {
+    const auth = getAuthRecord()
+    localStorage.setItem(
+      PENDING_KEY,
+      JSON.stringify({ userId: auth?.userId || null, state, queuedAt: Date.now() }),
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearPending() {
+  try {
+    localStorage.removeItem(PENDING_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Read the queued offline snapshot (or null), dropping cross-account data. */
+function readPending() {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY)
+    if (!raw) return null
+    const entry = JSON.parse(raw)
+    const auth = getAuthRecord()
+    if (!entry?.state || entry.userId !== (auth?.userId || null)) {
+      clearPending() // different account (or guest) — never cross-post data
+      return null
+    }
+    return entry
+  } catch {
+    clearPending()
+    return null
+  }
+}
+
+/** Retry a write made while offline (debounced fire-and-forget). */
+function flushPending() {
+  const entry = readPending()
+  if (!entry) return
+  latestState = entry.state
+  scheduleFlush()
+}
+
+/** Pull the server state, cache it, notify the app (if it changed). */
+async function refreshFromServer() {
+  if (!canSync() || refreshInFlight) return
+  refreshInFlight = true
+  try {
+    const serverState = await apiFetch('/state')
+    const json = JSON.stringify(serverState)
+    if (json === lastSyncedJson) return
+    lastSyncedJson = json
+    localStorage.setItem(STORAGE_KEY, json)
+    emitServerState(serverState)
+  } catch (err) {
+    // Offline / transient: silent — the cache keeps the app working.
+    if (err.code !== 'NETWORK' && err.status !== 401) {
+      console.warn('DailyQuest: background refresh failed', err.message)
+    }
+  } finally {
+    refreshInFlight = false
+  }
+}
+
+function emitServerState(state) {
+  try {
+    window.dispatchEvent(new CustomEvent('dailyquest:server-state', { detail: state }))
+  } catch {
+    /* ignore */
+  }
+}
+
+function initSyncListeners() {
+  if (syncReady) return
+  syncReady = true
+  window.addEventListener('online', () => {
+    flushPending()
+    refreshFromServer()
+  })
+}
+
+/**
+ * Called on login (and on load when a session exists): silently uploads any
+ * pre-upgrade localStorage data exactly once, then pulls the server state.
+ */
+export async function migrateAndSync() {
+  if (!canSync()) return { migrated: false, synced: false }
+  initSyncListeners()
+  const auth = getAuthRecord()
+  const marker = migratedKey(auth)
+
+  try {
+    if (!localStorage.getItem(marker)) {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const local = migrateState(JSON.parse(raw))
+        const res = await apiFetch('/state/migrate', { method: 'POST', body: { state: local } })
+        if (res?.state) lastSyncedJson = JSON.stringify(res.state)
+      }
+      localStorage.setItem(marker, '1')
+    }
+  } catch (err) {
+    // Never mark migrated on failure — silently retry next time.
+    if (err.code === 'NETWORK') return { migrated: false, synced: false }
+    console.warn('DailyQuest: migration skipped', err.message)
+    localStorage.setItem(marker, '1') // server refused — don't loop forever
+    await refreshFromServer()
+    return { migrated: false, synced: true }
+  }
+
+  // Flush writes queued while offline BEFORE pulling, so an older server
+  // snapshot can never clobber newer local work.
+  const queued = readPending()
+  if (queued) await flush(queued.state)
+
+  await refreshFromServer()
+  return { migrated: true, synced: true }
+}
+
+/* ===== original helpers below (unchanged) ===== */
 
 function clampInt(value, min, max, fallback) {
   const n = Math.round(Number(value))

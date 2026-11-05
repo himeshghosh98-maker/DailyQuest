@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useMemo } from 'react'
 
 const COLORS = ['#F97316', '#5A2E1E', '#8FA82B', '#E88BC8', '#FDDCC4', '#A0470F']

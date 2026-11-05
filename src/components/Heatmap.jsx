@@ -1,3 +1,5 @@
+'use client'
+
 import { useMemo } from 'react'
 import { addDays, toDateStr, todayStr } from '../utils/date'
 

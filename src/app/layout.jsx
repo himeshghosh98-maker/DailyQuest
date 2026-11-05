@@ -1,5 +1,6 @@
 import './globals.css'
 import Providers from '../components/Providers'
+import AppShell from '../components/layout/AppShell'
 
 export const metadata = {
   title: 'DailyQuest — Gamified Habit & Productivity Tracker',
@@ -13,7 +14,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-slate-50 dark:bg-[#090d16] font-sans antialiased text-slate-900 dark:text-slate-100 selection:bg-indigo-500/20 selection:text-indigo-600 dark:selection:text-indigo-300">
-        <Providers>{children}</Providers>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   )

@@ -2,15 +2,20 @@
 
 import { useRef, useState } from 'react'
 import Modal from './ui/Modal'
+import ConfirmDialog from './ui/ConfirmDialog'
 import { useQuest } from '../context/QuestContext'
 import { downloadBackup, parseBackup } from '../storage'
 import { playChime, requestNotifyPermission } from '../utils/alerts'
 import { Sun, Moon, Volume2, Bell, Download, Upload, RotateCcw, LogOut, Check } from 'lucide-react'
+import { toast } from 'sonner'
+import useAuth from '../hooks/useAuth'
 
-export default function SettingsModal({ open, onClose, onLogout }) {
+export default function SettingsModal({ open, onClose, onLogout: onLogoutProp }) {
   const { state, setSettings, importData, resetAll } = useQuest()
+  const { logout: authLogout } = useAuth()
+  const onLogout = onLogoutProp || authLogout
   const fileRef = useRef(null)
-  const [msg, setMsg] = useState(null)
+  const [confirmConfig, setConfirmConfig] = useState(null)
 
   const s = state.settings
   const notifSupported = typeof Notification !== 'undefined'
@@ -18,10 +23,11 @@ export default function SettingsModal({ open, onClose, onLogout }) {
   async function enableNotifications(enabled) {
     if (!enabled) {
       setSettings({ notifEnabled: false })
+      toast.info('Daily reminders turned off')
       return
     }
     if (!notifSupported) {
-      setMsg({ kind: 'error', text: 'Notifications are not supported in this browser.' })
+      toast.error('Notifications are not supported in this browser.')
       return
     }
     const perm =
@@ -30,9 +36,9 @@ export default function SettingsModal({ open, onClose, onLogout }) {
         : await Notification.requestPermission()
     if (perm === 'granted') {
       setSettings({ notifEnabled: true })
-      setMsg({ kind: 'ok', text: 'Daily reminders enabled!' })
+      toast.success('Daily reminders enabled!')
     } else {
-      setMsg({ kind: 'error', text: 'Notification permission was denied.' })
+      toast.error('Notification permission was denied.')
     }
   }
 
@@ -43,29 +49,34 @@ export default function SettingsModal({ open, onClose, onLogout }) {
     try {
       const text = await file.text()
       const next = parseBackup(text)
-      if (
-        !window.confirm(
-          `Import backup with ${next.tasks.length} quests and ${next.history.length} history days? This will replace your current data.`,
-        )
-      ) {
-        return
-      }
-      importData(next)
-      setMsg({ kind: 'ok', text: 'Backup imported successfully!' })
+      setConfirmConfig({
+        title: 'Import Backup File?',
+        description: `Import backup with ${next.tasks.length} quests and ${next.history.length} history days? This will replace your current data.`,
+        confirmText: 'Import & Replace',
+        danger: true,
+        onConfirm: () => {
+          importData(next)
+          toast.success('Backup imported successfully!')
+        },
+      })
     } catch (err) {
-      setMsg({ kind: 'error', text: err?.message || 'Failed to import backup file.' })
+      toast.error(err?.message || 'Failed to import backup file.')
     }
   }
 
   function handleReset() {
-    if (
-      window.confirm(
+    setConfirmConfig({
+      title: 'Reset All Progress?',
+      description:
         'Are you sure you want to reset all progress? All quests, XP, history, and achievements will be restored to initial defaults.',
-      )
-    ) {
-      resetAll()
-      onClose()
-    }
+      confirmText: 'Reset All Data',
+      danger: true,
+      onConfirm: () => {
+        resetAll()
+        toast.info('All progress has been restored to defaults.')
+        onClose()
+      },
+    })
   }
 
   return (
@@ -79,18 +90,6 @@ export default function SettingsModal({ open, onClose, onLogout }) {
             Customize your app experience, timer presets, and manage your data.
           </p>
         </div>
-
-        {msg && (
-          <div
-            className={`rounded-xl p-3 text-xs font-semibold ${
-              msg.kind === 'error'
-                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
-                : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-            }`}
-          >
-            {msg.text}
-          </div>
-        )}
 
         {/* Section 1: Appearance & Sounds */}
         <div className="space-y-3">
@@ -246,6 +245,18 @@ export default function SettingsModal({ open, onClose, onLogout }) {
           </div>
         </div>
       </div>
+
+      {confirmConfig && (
+        <ConfirmDialog
+          open={Boolean(confirmConfig)}
+          onClose={() => setConfirmConfig(null)}
+          onConfirm={confirmConfig.onConfirm}
+          title={confirmConfig.title}
+          description={confirmConfig.description}
+          confirmText={confirmConfig.confirmText}
+          danger={confirmConfig.danger}
+        />
+      )}
     </Modal>
   )
 }

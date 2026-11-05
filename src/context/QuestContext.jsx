@@ -537,6 +537,28 @@ function reducer(state, action) {
       return { ...imported, badges, toasts: [] }
     }
 
+    /**
+     * Server state applied by storage.js's background refresh.
+     * Unlike IMPORT this REPLACES the state as-is (no badge recomputation,
+     * so time-gated badges like Night Owl can't be silently dropped) after
+     * the same validation hydrate() performs.
+     */
+    case 'SYNC_STATE': {
+      const incoming = action.state
+      if (!incoming || typeof incoming !== 'object') return state
+      const synced = rollOverIfNeeded({
+        ...freshState(),
+        ...incoming,
+        version: incoming.version || DATA_VERSION,
+        settings: { ...defaultSettings(), ...(incoming.settings || {}) },
+        badges: incoming.badges || {},
+        toasts: [],
+        focusSessions: Array.isArray(incoming.focusSessions) ? incoming.focusSessions : [],
+        focus: sanitizeSession(incoming.focus),
+      })
+      return synced
+    }
+
     case 'RESET':
       return freshState()
 
@@ -552,6 +574,17 @@ export function QuestProvider({ children }) {
   useEffect(() => {
     saveState(state)
   }, [state])
+
+  // Apply state refreshed from the server in the background (storage.js
+  // dispatches it when a pull lands; silent, no UI change).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onServerState = (e) => {
+      if (e?.detail) dispatch({ type: 'SYNC_STATE', state: e.detail })
+    }
+    window.addEventListener('dailyquest:server-state', onServerState)
+    return () => window.removeEventListener('dailyquest:server-state', onServerState)
+  }, [])
 
   // Auto-reset quests at midnight even if the tab stays open.
   useEffect(() => {

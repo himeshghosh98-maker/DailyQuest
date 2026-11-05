@@ -54,6 +54,22 @@ Open the printed URL (default `http://localhost:5173`).
 > npm install && npm run dev
 > ```
 
+## Backend (new)
+
+The app now ships with a structured Node.js + Express API in [`server/`](server/README.md):
+real signup/login (bcrypt + JWT), task/progress/focus/report endpoints that mirror
+the existing data model, server-side XP/level/streak/badge math, and Gemini-powered
+AI insights (server-side key, cached). `storage.js` keeps localStorage as the instant
+cache and mirrors reads/writes to the API in the background, with an offline write
+queue and a one-time silent migration of pre-upgrade data on first login.
+
+```bash
+npm run dev:all        # Next.js frontend + API together
+npm run dev:all:vite   # Vite frontend + API together
+```
+
+See [`server/README.md`](server/README.md) for `.env`, database setup, and the API reference.
+
 ## Scripts
 
 | Command           | What it does                       |

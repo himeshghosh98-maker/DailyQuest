@@ -1,100 +1,150 @@
 'use client'
 
-import { Trophy, Sparkles, CheckCircle2, Lock, Flame } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Trophy, Sparkles, Award, CheckCircle2, Lock } from 'lucide-react'
 import { BADGES } from '../utils/badges'
 import { useQuest } from '../context/QuestContext'
 import { BADGE_XP } from '../constants'
+import PageHeader from './ui/PageHeader'
+import StatCard from './ui/StatCard'
+import Badge from './ui/Badge'
+import EmptyState from './ui/EmptyState'
 
 export default function AchievementsView() {
   const { state } = useQuest()
+  const [filter, setFilter] = useState('all') // 'all', 'unlocked', 'locked'
+
   const earned = state.badges || {}
   const earnedCount = Object.keys(earned).length
+  const totalBadges = BADGES.length
+  const completionPct = Math.round((earnedCount / totalBadges) * 100)
+
+  const filteredBadges = useMemo(() => {
+    return BADGES.filter((b) => {
+      const isUnlocked = Boolean(earned[b.id])
+      if (filter === 'unlocked') return isUnlocked
+      if (filter === 'locked') return !isUnlocked
+      return true
+    })
+  }, [earned, filter])
 
   return (
     <div className="space-y-6">
-      {/* Title & Progress Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
-            <Trophy className="h-7 w-7 text-amber-500" />
-            <span>Achievements & Trophies</span>
-          </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Unlock badges to prove your discipline and earn +{BADGE_XP} bonus XP for each achievement.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-auto rounded-2xl bg-amber-50 px-4 py-2 border border-amber-200/80 dark:bg-amber-950/40 dark:border-amber-800/80">
-          <Sparkles className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-black text-amber-800 dark:text-amber-200">
-            {earnedCount} of {BADGES.length} Unlocked
+      {/* 1. Page Header with Eyebrow and Filter Tabs */}
+      <PageHeader
+        eyebrow="Progression / Achievements"
+        title="Achievements & Trophies"
+        description={`Unlock badges to prove your discipline and earn +${BADGE_XP} bonus XP for each achievement.`}
+        badge={
+          <span className="flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            <span>
+              {earnedCount} of {totalBadges} Unlocked
+            </span>
           </span>
-        </div>
-      </div>
-
-      {/* Grid of Badges */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {BADGES.map((badge) => {
-          const has = Boolean(earned[badge.id])
-          const unlockedAt = earned[badge.id]
-
-          return (
-            <div
-              key={badge.id}
-              className={`card-aesthetic p-5 relative overflow-hidden transition-all duration-200 ${
-                has
-                  ? 'border-amber-500/40 bg-gradient-to-br from-amber-50/40 via-white to-orange-50/20 dark:from-amber-950/30 dark:via-slate-900 dark:to-slate-900'
-                  : 'opacity-70 dark:opacity-60 grayscale-[40%]'
+        }
+        action={
+          <div className="flex items-center rounded-xl bg-slate-100 p-1 dark:bg-slate-800/60 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                filter === 'all'
+                  ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
               }`}
             >
-              <div className="flex items-start gap-4">
-                {/* Emoji Avatar */}
-                <div
-                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl shadow-sm ${
-                    has
-                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/80 ring-2 ring-amber-400/50'
-                      : 'bg-slate-100 text-slate-400 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700'
-                  }`}
-                >
-                  {has ? badge.emoji : '🔒'}
-                </div>
+              All ({totalBadges})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('unlocked')}
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                filter === 'unlocked'
+                  ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+              }`}
+            >
+              Unlocked ({earnedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('locked')}
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                filter === 'locked'
+                  ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+              }`}
+            >
+              Locked ({totalBadges - earnedCount})
+            </button>
+          </div>
+        }
+      />
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
-                      {badge.name}
-                    </h3>
-                    {has ? (
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white text-xs">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
-                        <Lock className="h-3 w-3" /> Locked
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                    {badge.description}
-                  </p>
-
-                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <span className="badge-pill bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-                      +{BADGE_XP} XP Reward
-                    </span>
-                    {has && (
-                      <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                        Earned!
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        })}
+      {/* 2. Top KPI Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Badges Unlocked"
+          value={`${earnedCount}/${totalBadges}`}
+          icon={Trophy}
+          color="text-amber-500"
+          bgColor="bg-amber-50 dark:bg-amber-950/40"
+          subtext="Proven milestones"
+          trend={`${completionPct}%`}
+          trendType={completionPct > 50 ? 'positive' : 'neutral'}
+        />
+        <StatCard
+          label="Bonus XP Earned"
+          value={`+${(earnedCount * BADGE_XP).toLocaleString()}`}
+          icon={Sparkles}
+          color="text-indigo-600"
+          bgColor="bg-indigo-50 dark:bg-indigo-950/40"
+          subtext={`+${BADGE_XP} XP per badge`}
+          trend="Rewards"
+          trendType="positive"
+        />
+        <StatCard
+          label="Completion Rate"
+          value={`${completionPct}%`}
+          icon={CheckCircle2}
+          color="text-emerald-500"
+          bgColor="bg-emerald-50 dark:bg-emerald-950/40"
+          subtext="Overall trophy progress"
+          trend={completionPct === 100 ? 'Master' : 'In Progress'}
+          trendType={completionPct === 100 ? 'positive' : 'neutral'}
+        />
+        <StatCard
+          label="Badges Remaining"
+          value={totalBadges - earnedCount}
+          icon={Award}
+          color="text-violet-600"
+          bgColor="bg-violet-50 dark:bg-violet-950/40"
+          subtext="Available to unlock"
+          trend={`${totalBadges - earnedCount} Left`}
+          trendType="neutral"
+        />
       </div>
+
+      {/* 3. Grid of Badges or Empty State */}
+      {filteredBadges.length === 0 ? (
+        <EmptyState
+          emoji="🏆"
+          title="No badges match this filter"
+          description="Keep conquering your daily quests to earn new achievement badges and XP rewards."
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredBadges.map((badge) => (
+            <Badge
+              key={badge.id}
+              badge={badge}
+              unlocked={Boolean(earned[badge.id])}
+              unlockedAt={earned[badge.id]}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

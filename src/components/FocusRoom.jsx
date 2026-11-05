@@ -27,8 +27,21 @@ import {
   remainingMs,
   ringFraction,
 } from '../utils/focus'
+import { useRouter } from 'next/navigation'
+import { useFocus } from '../context/FocusContext'
+import PageHeader from './ui/PageHeader'
+import ProgressRing from './ui/ProgressRing'
 
-export default function FocusRoom({ focusEngine, onBackToQuests }) {
+import { useModals } from '../context/ModalContext'
+import { toast } from 'sonner'
+
+export default function FocusRoom({ focusEngine: focusEngineProp, onBackToQuests }) {
+  const router = useRouter()
+  const defaultFocus = useFocus()
+  const { confirmAction } = useModals()
+  const focusEngine = focusEngineProp || defaultFocus
+  const handleBack = onBackToQuests || (() => router.push('/quests'))
+
   const { state, focusStart, focusPause, focusResume, focusReset, focusFinish, focusCancel, setSettings } =
     useQuest()
   const { session, running, now } = focusEngine
@@ -64,45 +77,64 @@ export default function FocusRoom({ focusEngine, onBackToQuests }) {
 
   function handleStart(mode, customDuration) {
     focusStart(activeTask, mode || 'pomodoro', customDuration || customMin)
+    toast.info('Focus session started')
   }
 
   function handleFinish() {
     focusFinish(false)
+    toast.success('Focus session completed and logged! 🎉')
   }
 
   function handleCancel() {
-    if (minsFocused >= 1 && !window.confirm(`Discard this session? ${minsFocused} min will not be logged.`)) return
+    if (minsFocused >= 1) {
+      confirmAction({
+        title: 'Discard Focus Session?',
+        description: `Discard this active session? ${minsFocused} min will not be logged.`,
+        confirmText: 'Discard Session',
+        danger: true,
+        onConfirm: () => {
+          focusCancel()
+          toast.info('Focus session cancelled')
+        },
+      })
+      return
+    }
     focusCancel()
+    toast.info('Focus session cancelled')
   }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Top Header */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onBackToQuests}
-          className="btn-aesthetic-secondary !py-2 !px-3 text-xs"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back to Quests</span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          {/* Sound Mute Toggle */}
-          <button
-            type="button"
-            onClick={() => setSettings({ focusSound: !s.focusSound })}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-            title={s.focusSound ? 'Mute chimes' : 'Unmute chimes'}
-          >
-            {s.focusSound ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Workspace / Focus Room"
+        title="Focus Room"
+        description="Deep work sessions powered by Pomodoro technique and interval tracking."
+        badge={running ? '⚡ Active Session' : session ? 'Paused' : 'Ready'}
+        action={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="btn-aesthetic-secondary !py-2 !px-3 text-xs cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Quests</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettings({ focusSound: !s.focusSound })}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 cursor-pointer transition-colors"
+              title={s.focusSound ? 'Mute chimes' : 'Unmute chimes'}
+            >
+              {s.focusSound ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            </button>
+          </div>
+        }
+      />
 
       {/* Main Focus Chamber Card */}
-      <div className="card-aesthetic relative overflow-hidden p-6 sm:p-10 text-center">
+      <div className="rounded-xl border border-slate-200/80 bg-white relative overflow-hidden p-6 sm:p-10 text-center shadow-xs dark:border-slate-800 dark:bg-slate-900/90">
         {/* Glow backdrop */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="h-72 w-72 rounded-full bg-indigo-500/15 blur-3xl animate-pulse-subtle" />
@@ -184,46 +216,25 @@ export default function FocusRoom({ focusEngine, onBackToQuests }) {
         </div>
 
         {/* Circular Countdown Timer */}
-        <div className="relative mx-auto my-8 flex h-72 w-72 sm:h-80 sm:w-80 items-center justify-center">
-          <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 320 320">
-            <circle
-              cx="160"
-              cy="160"
-              r={r}
-              className="text-slate-100 dark:text-slate-800"
-              strokeWidth="12"
-              stroke="currentColor"
-              fill="transparent"
-            />
-            <circle
-              cx="160"
-              cy="160"
-              r={r}
-              className="text-indigo-600 dark:text-indigo-400 transition-all duration-300"
-              strokeWidth="12"
-              strokeDasharray={circ}
-              strokeDashoffset={strokeOffset}
-              strokeLinecap="round"
-              stroke="currentColor"
-              fill="transparent"
-            />
-          </svg>
-
-          {/* Time Display */}
-          <div className="absolute flex flex-col items-center justify-center">
-            <span className="font-mono text-5xl sm:text-6xl font-black tracking-tight text-slate-900 dark:text-white">
-              {session ? fmtClock(remaining) : '25:00'}
+        <ProgressRing
+          value={Math.round(frac * 100)}
+          size={300}
+          strokeWidth={12}
+          strokeColor="#6366f1"
+          className="my-8 mx-auto"
+        >
+          <span className="font-mono text-5xl sm:text-6xl font-black tracking-tight text-slate-900 dark:text-white">
+            {session ? fmtClock(remaining) : '25:00'}
+          </span>
+          <span className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+            {session ? `${phaseLabel(session.phase)} Phase` : 'Ready to Start'}
+          </span>
+          {session && session.mode === 'pomodoro' && (
+            <span className="mt-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
+              Session #{session.sessionIndex || 1}
             </span>
-            <span className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-              {session ? `${phaseLabel(session.phase)} Phase` : 'Ready to Start'}
-            </span>
-            {session && session.mode === 'pomodoro' && (
-              <span className="mt-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
-                Session #{session.sessionIndex || 1}
-              </span>
-            )}
-          </div>
-        </div>
+          )}
+        </ProgressRing>
 
         {/* Main Controls */}
         <div className="relative z-10 flex flex-wrap items-center justify-center gap-3">

@@ -17,17 +17,29 @@ import {
 import { useQuest } from '../context/QuestContext'
 import { scheduledTasks } from '../utils/schedule'
 import { isComplete, grantedXp } from '../utils/tasks'
+import { useRouter } from 'next/navigation'
 import { currentStreak, bestStreak } from '../utils/stats'
 import { levelProgress } from '../utils/xp'
 import { fmtClock, fmtMinutes } from '../utils/focus'
 import { BADGES } from '../utils/badges'
+import { useFocus } from '../context/FocusContext'
+import { useModals } from '../context/ModalContext'
 
 export default function CompanionSidebar({
   onFinishDay,
   onOpenFocusRoom,
-  focusEngine,
+  focusEngine: focusEngineProp,
   onOpenAchievements,
 }) {
+  const router = useRouter()
+  const defaultFocus = useFocus()
+  const { openReport } = useModals()
+  const focusEngine = focusEngineProp || defaultFocus
+
+  const handleFinishDay = onFinishDay || openReport
+  const handleOpenFocus = onOpenFocusRoom || (() => router.push('/focus'))
+  const handleOpenAchievements = onOpenAchievements || (() => router.push('/achievements'))
+
   const { state, focusStart, focusPause, focusResume, focusReset } = useQuest()
   const today = scheduledTasks(state.tasks, state.lastActiveDate)
 
@@ -119,7 +131,7 @@ export default function CompanionSidebar({
         {/* Finish Day Action */}
         <button
           type="button"
-          onClick={onFinishDay}
+          onClick={handleFinishDay}
           disabled={totalCount === 0}
           className={`mt-4 w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 ${
             allDone
@@ -142,7 +154,7 @@ export default function CompanionSidebar({
           </div>
           <button
             type="button"
-            onClick={onOpenFocusRoom}
+            onClick={handleOpenFocus}
             className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
           >
             <span>Full View</span>
@@ -261,7 +273,7 @@ export default function CompanionSidebar({
           </div>
           <button
             type="button"
-            onClick={onOpenAchievements}
+            onClick={handleOpenAchievements}
             className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
           >
             {earnedCount}/{BADGES.length} Unlocked

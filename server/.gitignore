@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+# mongodb-memory-server cached binaries
+.cache/
+# auto-provisioned local dev database (when MONGODB_URI is empty)
+.mongo-data/

@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect } from 'react'
 import { useQuest } from '../context/QuestContext'
 import { evaluateBadges, perfectDaysCount } from '../utils/badges'

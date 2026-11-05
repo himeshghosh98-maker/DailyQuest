@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import { Plus, Search, Filter, Sparkles, CheckCircle2, Clock, CalendarDays } from 'lucide-react'
-import TaskItem from './TaskItem'
+import QuestCard from './ui/QuestCard'
+import EmptyState from './ui/EmptyState'
 import { useQuest } from '../context/QuestContext'
 import { scheduledTasks } from '../utils/schedule'
 import { isComplete } from '../utils/tasks'
 import { todayStr, longLabel } from '../utils/date'
 
-export default function TaskList({ selectedDate, onNewTask, onEditTask, onFocusTask, userName }) {
+export default function TaskList({ selectedDate, onNewTask, onEditTask, onFocusTask, userName, onRequestDeleteTask }) {
   const { state } = useQuest()
   const [filter, setFilter] = useState('all') // 'all', 'morning', 'afternoon', 'evening', 'active', 'done'
   const [search, setSearch] = useState('')
@@ -54,38 +55,24 @@ export default function TaskList({ selectedDate, onNewTask, onEditTask, onFocusT
     { id: 'evening', label: 'Evening' },
   ]
 
+  const pageTitle = isToday ? 'Daily Quests' : `Quests for ${longLabel(activeDate)}`
+  const pageDesc = isToday
+    ? `${doneCount} of ${totalCount} completed (${completionPct}%) • Keep the momentum going!`
+    : 'Viewing historical or planned schedule for this day'
+  const perfectBadge = isToday && doneCount === totalCount && totalCount > 0 ? '🎉 Perfect Day!' : null
+
   return (
     <div className="space-y-4">
-      {/* Header & Greeting Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+      {/* Date Indicator when viewing non-today date */}
+      {!isToday && (
+        <div className="flex items-center justify-between rounded-xl bg-indigo-50/70 border border-indigo-200/60 px-4 py-2.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:border-indigo-800/60 dark:text-indigo-300">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              {isToday ? `Daily Quests` : `Quests for ${longLabel(activeDate)}`}
-            </h1>
-            {isToday && doneCount === totalCount && totalCount > 0 && (
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                🎉 Perfect Day!
-              </span>
-            )}
+            <CalendarDays className="h-4 w-4" />
+            <span>Viewing scheduled quests for {longLabel(activeDate)}</span>
           </div>
-          <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-            {isToday
-              ? `${doneCount} of ${totalCount} completed (${completionPct}%) • Keep the momentum going!`
-              : `Viewing historical or planned schedule for this day`}
-          </p>
+          <span className="font-bold">{doneCount}/{totalCount} Completed</span>
         </div>
-
-        {/* Action: Add Quest */}
-        <button
-          type="button"
-          onClick={onNewTask}
-          className="btn-aesthetic-primary"
-        >
-          <Plus className="h-4 w-4 stroke-[3]" />
-          <span>New Quest</span>
-        </button>
-      </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-2.5 sm:items-center justify-between pt-1">
@@ -133,43 +120,43 @@ export default function TaskList({ selectedDate, onNewTask, onEditTask, onFocusT
         </div>
       </div>
 
-      {/* Routine Cards List */}
+      {/* Routine Cards List or Empty State */}
       {filtered.length === 0 ? (
-        <div className="card-aesthetic flex flex-col items-center justify-center p-10 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-3xl text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
-            {search ? '🔍' : totalCount === 0 ? '🌴' : '✨'}
-          </div>
-          <h3 className="mt-4 text-base font-bold text-slate-900 dark:text-white">
-            {search
+        <EmptyState
+          emoji={search ? '🔍' : totalCount === 0 ? '🌴' : '✨'}
+          title={
+            search
               ? 'No matching quests found'
               : totalCount === 0
               ? 'No quests scheduled for this day'
-              : 'All filtered quests caught up!'}
-          </h3>
-          <p className="mt-1 max-w-sm text-xs text-slate-500 dark:text-slate-400">
-            {search
+              : 'All filtered quests caught up!'
+          }
+          description={
+            search
               ? 'Try searching with another keyword or clear the search filter.'
               : totalCount === 0
               ? 'Take a well-deserved rest, or create a new routine to conquer today.'
-              : 'Great job! Check other filters or relax for the day.'}
-          </p>
-          <button
-            type="button"
-            onClick={onNewTask}
-            className="btn-aesthetic-secondary mt-4 !py-1.5 !text-xs"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add a Quest</span>
-          </button>
-        </div>
+              : 'Great job! Check other filters or relax for the day.'
+          }
+          action={
+            totalCount === 0 || search
+              ? {
+                  label: 'Add a Quest',
+                  onClick: onNewTask,
+                  icon: Plus,
+                }
+              : null
+          }
+        />
       ) : (
         <div className="stagger space-y-3">
           {filtered.map((task) => (
-            <TaskItem
+            <QuestCard
               key={task.id}
               task={task}
               onEdit={onEditTask}
               onFocus={onFocusTask}
+              onRequestDelete={onRequestDeleteTask}
             />
           ))}
         </div>
