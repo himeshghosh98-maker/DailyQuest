@@ -1,7 +1,23 @@
+# Environment & secrets
+.env
+.env*.local
+.env.*
+!.env.example
+
+# Dependencies
 node_modules/
+venv/
+.venv/
+__pycache__/
+
+# Build outputs
 dist/
+build/
 .next/
+
+# Logs & temporary files
 *.log
 .node/
 .freebuff/
 .DS_Store
+.mongo-data/
